@@ -30,15 +30,18 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Column(length = 128)
     private String region;
 
+    @Column(length = 550)
     private String bio;
 
+    @Column(nullable = false)
     private int rating;
 
     @Column(name = "problems_solved", nullable = false)
-    private int problemsSolved = 0;
+    private int problemsSolved;
 
     @Column(name = "submissions", nullable = false)
-    private int numberOfSubmissions = 0;
+    private int numberOfSubmissions;
 }

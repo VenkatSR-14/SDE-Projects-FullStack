@@ -1,18 +1,31 @@
 package com.leetcodeClone.user_service.service;
 
+import com.leetcodeClone.user_service.config.Constants;
+import com.leetcodeClone.user_service.config.JwtTokenUtil;
+import com.leetcodeClone.user_service.dto.SignUpRequest;
+import com.leetcodeClone.user_service.exception.InvalidCredentialsException;
+import com.leetcodeClone.user_service.exception.UserNotFoundException;
 import com.leetcodeClone.user_service.model.User;
 import com.leetcodeClone.user_service.repository.UserRepository;
+import io.jsonwebtoken.Jwt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class UserServiceImpl implements UserService {
     @Autowired
     private UserRepository userRepository;
+    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
+    private JwtTokenUtil jwtTokenUtil;
 
     @Override
     public List<User> getAllUsers(){
@@ -25,27 +38,52 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User createUser(User user){
+    public User createUser(SignUpRequest signUpRequest){
+        logger.info("Creating new user..");
+        User user = new User();
+        user.setRating(Constants.DEFAULT_RATING);
+        user.setNumberOfSubmissions(Constants.DEFAULT_SUBMISSIONS);
+        user.setProblemsSolved(Constants.DEFAULT_PROBLEMS_SOLVED);
+        user.setBio(signUpRequest.getBio());
+        user.setFullname(signUpRequest.getFullname());
+        user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
+        user.setRegion(signUpRequest.getRegion());
+        user.setUsername(signUpRequest.getUsername());
+        user.setEmail(signUpRequest.getEmail());
         return userRepository.save(user);
     }
 
 
-    public User updateUser(UUID id, User userDetails){
+    @Override
+    public User updateUser(UUID id, User userDetails) {
+        logger.info("Updating user details with id: {}", id);
         return userRepository.findById(id).map(user -> {
             user.setFullname(userDetails.getFullname());
-            user.setRating(userDetails.getRating());
             user.setEmail(userDetails.getEmail());
             user.setRegion(userDetails.getRegion());
-            user.setPassword(userDetails.getPassword());
-            user.setProblemsSolved(userDetails.getProblemsSolved());
-            user.setNumberOfSubmissions(userDetails.getNumberOfSubmissions());
+            user.setPassword(passwordEncoder.encode(userDetails.getPassword()));
             user.setBio(userDetails.getBio());
             user.setUsername(userDetails.getUsername());
             return userRepository.save(user);
-        }).orElseThrow(() -> new RuntimeException("User with id" + id + "Not found"));
+        }).orElseThrow(() -> new UserNotFoundException("User with id " + id + " not found"));
     }
     @Override
     public void deleteUser(UUID id) {
         userRepository.deleteById(id);
+    }
+
+    @Override
+    public String authenticateUser(String email, String password) {
+        logger.info("Attempting to authenticate user with email: {}", email);
+        Optional<User> user = userRepository.findByEmail(email);
+        if (user.isPresent() && passwordEncoder.matches(password, user.get().getPassword())) {
+            logger.info("Authentication successful for user: {}", email);
+            String token = jwtTokenUtil.generateToken(email);
+            logger.info("JWT token generated for user: {}", email);
+            return token;
+        } else {
+            logger.warn("Authentication failed for user: {}", email);
+            throw new InvalidCredentialsException("Invalid email or password");
+        }
     }
 }
