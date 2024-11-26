@@ -1,5 +1,6 @@
 package com.leetcodeClone.user_service.controller;
 
+import com.leetcodeClone.user_service.config.JwtTokenUtil;
 import com.leetcodeClone.user_service.dto.SignInRequest;
 import com.leetcodeClone.user_service.dto.SignUpRequest;
 import com.leetcodeClone.user_service.model.User;
@@ -20,6 +21,8 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private JwtTokenUtil jwtTokenUtil;
     @GetMapping
     public List<User> getAllUsers(){
         return userService.getAllUsers();
@@ -49,6 +52,15 @@ public class UserController {
     public String deleteUserById(@PathVariable UUID id){
         userService.deleteUser(id);
         return "User with id "+ id + "successfully deleted";
+    }
+
+    @PostMapping("/verify-token")
+    public ResponseEntity<String> verifyToken(@RequestHeader("Authorization") String token){
+        if (jwtTokenUtil.validateToken(token.substring(7))){
+            return ResponseEntity.ok("Token is valid");
+        }else{
+            return ResponseEntity.status(401).body("Token is invalid or expired");
+        }
     }
 
 }

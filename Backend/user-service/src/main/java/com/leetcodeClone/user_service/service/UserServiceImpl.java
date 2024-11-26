@@ -9,6 +9,9 @@ import com.leetcodeClone.user_service.model.User;
 import com.leetcodeClone.user_service.repository.UserRepository;
 import io.jsonwebtoken.Jwt;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -20,11 +23,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Service
-public class UserServiceImpl implements UserService {
+public class UserServiceImpl implements UserService, UserDetailsService {
     @Autowired
     private UserRepository userRepository;
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
+    @Autowired
     private JwtTokenUtil jwtTokenUtil;
 
     @Override
@@ -85,5 +89,23 @@ public class UserServiceImpl implements UserService {
             logger.warn("Authentication failed for user: {}", email);
             throw new InvalidCredentialsException("Invalid email or password");
         }
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        // Fetch user by email (username in this case)
+        Optional<User> userOptional = userRepository.findByEmail(username);
+        if (userOptional.isEmpty()) {
+            throw new UsernameNotFoundException("User with email " + username + " not found");
+        }
+
+        User user = userOptional.get();
+
+        // Return a Spring Security UserDetails object
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(user.getEmail()) // Set username
+                .password(user.getPassword()) // Set hashed password
+                .roles("USER") // Set roles (you can fetch roles dynamically if needed)
+                .build();
     }
 }
